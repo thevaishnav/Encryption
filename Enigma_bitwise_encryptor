@@ -16,17 +16,6 @@ To make it even harder to decrypt:
     Checking if the file is readable or not takes minimum of one second. That means, he can`t guess millions of passwords every seconds, infact
     he can check only one password per second which makes checking every password approach extremely slow.
 """
-"""
-How to use it...
-    Step 1: Copy the codes to any file you want.
-    Step 2: Run the codes.
-    Step 3: Choose whether you want to Encrypt or Decrypt.
-    Step 4: Choose the file you want to Encrypt or Decrypt.
-    Step 5: Choose the folder where you want to place Encrypted or Decrypted file.
-    Step 6: Enter Rotors Setting
-    Step 7: Enter Sockets Setting
-    Step 8: Wait till its over.
-"""
 import os
 
 
@@ -67,6 +56,10 @@ class Rotor:
 
 class Engine:
     def __init__(self, settings=(0, 0, 0), sockets=""):
+        """
+        :param settings: String or a Tuple with each element in range of 0, 255
+        :param sockets: must be a string with at least 10 unique characters.
+        """
         self.settings = settings
         if sockets: self.set_sockets(sockets)
         self.set_rotors(settings)
@@ -89,11 +82,17 @@ class Engine:
 
     def set_rotors(self, settings):
         rotors = []
-        for letter in str(settings):
-            o1 = ord(letter)
-            if o1 > 255: o1 = 255
-            if o1 in rotors: continue
-            rotors.append(o1)
+        if type(settings) is str:
+            for letter in str(settings):
+                o1 = ord(letter)
+                if o1 > 255: o1 = 255
+                if o1 in rotors: continue
+                rotors.append(int(o1))
+        elif type(settings) is tuple:
+            for o1 in settings:
+                if o1 > 255: raise ValueError("Given rotor settings has integers out of (0, 255) range.")
+                if o1 in rotors: continue
+                rotors.append(int(o1))
 
         self.rotors = []
         for setting in list(rotors):
@@ -143,7 +142,7 @@ class Engine:
         return X
 
 
-def encrypt(enigma, source_file, target_file):
+def encrypt_file(enigma, source_file, target_file):
     enigma.reset()
     print("\t" + str(source_file))
     word_file = open(source_file, "rb")
@@ -156,11 +155,13 @@ def encrypt(enigma, source_file, target_file):
 def encrypt_folder(enigma, source_dir, target_dir):
     if not os.path.isdir(target_dir): os.mkdir(target_dir)
     for item in os.listdir(source_dir):
-        if os.path.isdir(f"{source_dir}\\{item}"): encrypt_folder(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}")
-        elif os.path.isfile(f"{source_dir}\\{item}"): encrypt(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}.enc")
+        if os.path.isdir(f"{source_dir}\\{item}"):
+            encrypt_folder(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}")
+        elif os.path.isfile(f"{source_dir}\\{item}"):
+            encrypt_file(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}.enc")
 
 
-def decrypt(enigma, source_file, target_file):
+def decrypt_file(enigma, source_file, target_file):
     print("\t" + str(source_file))
     enigma.reset()
     chrn_file = open(source_file, "rb")
@@ -173,62 +174,58 @@ def decrypt(enigma, source_file, target_file):
 def decrypt_folder(enigma, source_dir, target_dir):
     if not os.path.isdir(target_dir): os.mkdir(target_dir)
     for item in os.listdir(source_dir):
-        if os.path.isdir(f"{source_dir}\\{item}"): decrypt_folder(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}")
-        elif os.path.isfile(f"{source_dir}\\{item}"): decrypt(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item.replace('.enc', '')}")
+        if os.path.isdir(f"{source_dir}\\{item}"):
+            decrypt_folder(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}")
+        elif os.path.isfile(f"{source_dir}\\{item}"):
+            decrypt_file(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item.replace('.enc', '')}")
 
 
-def main():
-    engine = None
-    operation = input("What do you want to do (enc or dec): ").lower()
-    while operation not in ["Encrypt", "Decrypt"]:
-        if operation == "enc":
-            operation = "Encrypt"
-        elif operation == "dec":
-            operation = "Decrypt"
-        else:
-            print("That`s an invalid operation")
-            operation = input("Try again: ")
+change = lambda option: "Good" if option else "Bad\t\t\t"
 
-    file_path = input(f"Enter the file (or folder) path you want to {operation}: ")
-    while not (os.path.isfile(file_path) or os.path.isdir(file_path)):
-        print("--Provided file path is invalid.\n")
-        file_path = input("Try again: ")
 
-    target_fold = input("Target folder path: ")
-    while not os.path.isdir(target_fold):
-        print("--Provided path is invalid.\n")
-        target_fold = input("Try again: ")
+def check_file(enigma, master_file, child_file):
+    master = open(master_file, "rb")
+    try:
+        child = open(child_file, "rb")
+    except FileNotFoundError:
+        print("Not Found ->    ", str(master_file))
+        return
+    print(change(master.read() == bytearray(enigma.decrypt(list(child.read())))), " ->    ", str(master_file))
+    master.close()
+    child.close()
 
-    rotor_sett = input("Enter Rotor Settings: ")
-    socket_sett = input("Enter Socket Settings: ")
-    is_valid = False
 
-    while not is_valid:
-        try:
-            engine = Engine(rotor_sett, socket_sett)
-            is_valid = True
-        except ValueError as V:
-            print(V)
-            if "socket" in str(V).lower():
-                socket_sett = input("Enter Socket Settings: ")
-            elif "rotor" in str(V).lower():
-                rotor_sett = input("Enter Rotor Settings: ")
-
-    print("Working...")
-
-    if os.path.isfile(file_path):
-        print("this one")
-        if operation == "Encrypt":
-            encrypt(engine, file_path, target_fold + "\\" + os.path.basename(file_path) + ".enc")
-
-        elif operation == "Decrypt":
-            decrypt(engine, file_path, target_fold + "\\" + os.path.basename(file_path).replace(".enc", ""))
-
-    elif os.path.isdir(file_path):
-        if target_fold.endswith("\\") or target_fold.endswith("/"): target_fold = target_fold[:-1]
-        if operation == "Encrypt": encrypt_folder(engine, file_path, f"{target_fold}\\Encrypted")
-        elif operation == "Decrypt": decrypt_folder(engine, file_path, f"{target_fold}\\Decrypted")
+def check_folder(enigma, master_folder, child_folder):
+    for item in os.listdir(master_folder):
+        if os.path.isdir(f"{master_folder}\\{item}"):
+            check_folder(enigma, f"{master_folder}\\{item}", f"{child_folder}\\{item}")
+        elif os.path.isfile(f"{master_folder}\\{item}"):
+            check_file(enigma, f"{master_folder}\\{item}", f"{child_folder}\\{item}")
 
 
 if __name__ == '__main__':
-    main()
+    source_folder = "source\\folder\\name\\here"
+    source_file_name_with_extension = "source_file_name.extension"
+    target_folder = "target\\folder\\name\\here"
+    target_file_name_with_extension = "target_file_name"  # no need of extension, this file may or may not exist.
+    decrypted_folder = "decrypted\\folder\\name\\here"
+    decrypted_file_with_extension = "decrypted_file_name.extension"
+    engine = Engine((138, 61, 72, 41, 9), "There is a bird, but can`t find her, so improvise.")
+
+    # To Encrypt File, use:
+    # encrypt_file(engine, f"{source_folder}\\{source_file_name_with_extension}", f"{target_folder}\\{target_file_name_with_extension}")
+
+    # To Encrypt Folder, use:
+    # decrypt_folder(engine, source_folder, f"{target_folder}\\Encrypted")    # create a new directory to save Encrypted.
+
+    # To Decrypt File, use:
+    # decrypt_file(engine, f"{source_folder}\\{source_file_name_with_extension}", f"{target_folder}\\{target_file_name_with_extension}")
+
+    # To Encrypt Folder, use:
+    # decrypt_folder(engine, source_folder, f"{target_folder}\\Decrypted")    # create a new directory to save Decrypted.
+
+    # To check if the file is properly encrypted or not, use:
+    # check_file(engine, f"{source_folder}\\{source_file_name_with_extension}", f"{decrypted_folder}\\{decrypted_file_with_extension}")
+
+    # To check if the folder is properly encrypted or not, decrypt the folder and then use:
+    # check_folder(engine, source_folder, decrypted_folder)
