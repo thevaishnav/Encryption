@@ -8,7 +8,7 @@ import os
 
 class Rotor:
     def __init__(self, setting):
-        """:param setting: A number between 0 to 94 specifying the initial potion of rotor."""
+        """:param setting: A number between 0 to 255 specifying the initial potion of rotor."""
         self.initial_setting = setting
         self.rotor_size = 256
         self.wheel_indices = [*range(setting, self.rotor_size), *range(setting)]
@@ -43,38 +43,47 @@ class Rotor:
 
 class Engine:
     def __init__(self, settings=(0, 0, 0), sockets=""):
+        """
+        :param settings: String or a Tuple with each element in range of 0, 255
+        :param sockets: must be a string with at least 10 unique characters.
+        """
+        self.settings = settings
         if sockets: self.set_sockets(sockets)
         self.set_rotors(settings)
 
+    def __str__(self):
+        return f"Enigma Settings: {self.settings}\nEnigma Sockets: {self.sockets}"
+
     def set_sockets(self, sockets):
         if len(set(sockets)) < 10: raise ValueError("Socket String must contain at least 10 Unique characters")
-        temp_sockets = {}
+        self.sockets = {}
         exponent = 1
-        while len(temp_sockets) <= 100:
+        while len(self.sockets) <= 100:
             for ind in range(0, len(sockets) - 1, 2):
                 ord1 = self.generate_random(ord(sockets[ind]), exponent)
                 ord2 = self.generate_random(ord(sockets[ind + 1]), exponent)
-                if (ord1 in temp_sockets) or (ord2 in temp_sockets): continue
-                temp_sockets[ord1] = ord2
-                temp_sockets[ord2] = ord1
+                if (ord1 in self.sockets) or (ord2 in self.sockets): continue
+                self.sockets[ord1] = ord2
+                self.sockets[ord2] = ord1
             exponent += 1
-            if exponent == 1000: raise ValueError("Given String can`t be used as socket settings.")
-        self.sockets = temp_sockets
 
     def set_rotors(self, settings):
         rotors = []
-        for letter in str(settings):
-            o1 = ord(letter)
-            if o1 > 255: o1 = 255
-            if o1 in rotors: continue
-            rotors.append(o1)
+        if type(settings) is str:
+            for letter in str(settings):
+                o1 = ord(letter)
+                if o1 > 255: o1 = 255
+                if o1 in rotors: continue
+                rotors.append(int(o1))
+        elif type(settings) is tuple:
+            for o1 in settings:
+                if o1 > 255: raise ValueError("Given rotor settings has integers out of (0, 255) range.")
+                if o1 in rotors: continue
+                rotors.append(int(o1))
 
-        temp_rotors = []
+        self.rotors = []
         for setting in list(rotors):
-            if not (0 < setting <= 255): raise ValueError("Given rotor setting has value out of (0 to 255) range.")
-            temp_rotors.append(Rotor(setting))
-
-        self.rotors = temp_rotors
+            self.rotors.append(Rotor(setting))
         self.two_way_rotors = [*self.rotors, *[self.rotors[i] for i in range(len(self.rotors) - 2, -1, -1)]]
 
     def through_socket(self, letter):
@@ -90,7 +99,7 @@ class Engine:
             do_rotate = True
             for rotor in self.two_way_rotors:
                 letter, do_rotate = rotor.encrypt(letter, do_rotate)
-            tr += str(chr(self.through_socket(letter)))
+            tr += chr(self.through_socket(letter))
         return tr
 
     def decrypt(self, message):
@@ -100,7 +109,7 @@ class Engine:
             do_rotate = True
             for rotor in self.two_way_rotors:
                 letter, do_rotate = rotor.decrypt(letter, do_rotate)
-            tr += str(chr(self.through_socket(letter)))
+            tr += chr(self.through_socket(letter))
         return tr
 
     def set(self, settings, sockets):
@@ -121,6 +130,9 @@ class Engine:
 
 
 def encrypt_file(enigma, source_file, target_file):
+    if not source_file.endswith(".txt"): 
+        print("\tIgnoring ", source_file)
+        return
     enigma.reset()
     print("\t" + str(source_file))
     word_file = open(source_file, "rb")
@@ -133,11 +145,16 @@ def encrypt_file(enigma, source_file, target_file):
 def encrypt_folder(enigma, source_dir, target_dir):
     if not os.path.isdir(target_dir): os.mkdir(target_dir)
     for item in os.listdir(source_dir):
-        if os.path.isdir(f"{source_dir}\\{item}"): encrypt_folder(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}")
-        elif os.path.isfile(f"{source_dir}\\{item}"): encrypt_file(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}.enc")
+        if os.path.isdir(f"{source_dir}\\{item}"):
+            encrypt_folder(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}")
+        elif os.path.isfile(f"{source_dir}\\{item}"):
+            encrypt_file(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}.enc")
 
 
 def decrypt_file(enigma, source_file, target_file):
+    if not target_file.endswith(".txt"):
+        print("\tIgnoring ", source_file)
+        return
     print("\t" + str(source_file))
     enigma.reset()
     chrn_file = open(source_file, "rb")
@@ -150,24 +167,69 @@ def decrypt_file(enigma, source_file, target_file):
 def decrypt_folder(enigma, source_dir, target_dir):
     if not os.path.isdir(target_dir): os.mkdir(target_dir)
     for item in os.listdir(source_dir):
-        if os.path.isdir(f"{source_dir}\\{item}"): decrypt_folder(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}")
-        elif os.path.isfile(f"{source_dir}\\{item}"): decrypt_file(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item.replace('.enc', '')}")
+        if os.path.isdir(f"{source_dir}\\{item}"):
+            decrypt_folder(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item}")
+        elif os.path.isfile(f"{source_dir}\\{item}"):
+            decrypt_file(enigma, f"{source_dir}\\{item}", f"{target_dir}\\{item.replace('.enc', '')}")
 
 
+change = lambda option: "Good" if option else "Bad\t\t\t"
+
+
+def check_file(enigma, master_file, child_file):
+    if not master_file.endswith(".txt"):
+        print("\tIgnoring ", master_file)
+        return
+    master = open(master_file, "rb")
+    try:
+        child = open(child_file, "rb")
+    except FileNotFoundError:
+        print("Not Found ->    ", str(master_file))
+        return
+    print(change(master.read() == bytearray(enigma.decrypt(list(child.read())))), " ->    ", str(master_file))
+    master.close()
+    child.close()
+
+
+def check_folder(enigma, master_folder, child_folder):
+    for item in os.listdir(master_folder):
+        if os.path.isdir(f"{master_folder}\\{item}"):
+            check_folder(enigma, f"{master_folder}\\{item}", f"{child_folder}\\{item}")
+        elif os.path.isfile(f"{master_folder}\\{item}"):
+            check_file(enigma, f"{master_folder}\\{item}", f"{child_folder}\\{item}")
 
 
 if __name__ == '__main__':
-    engine = Engine((51, 47, 84), "this is just a test 123456789")
-    # To encrypt a file use:
-    # encrypt_file(engine, f"{file_path}\\{file_name}", f"{target_folder}\\{target_file}")
-    # target_file need not to exist, file_path, file_name, target_folder must exist.
-    # To encrypt a folder use:
-    encrypt_folder(engine, r"D:\Tester\Chronicles", r"D:\ChronsEncrypted")
+    source_folder = "source\\folder\\name\\here"
+    source_file_name_with_extension = "source_file_name.extension"
+    target_folder = "target\\folder\\name\\here"
+    target_file_name_with_extension = "target_file_name"  # no need of extension, this file may or may not exist.
+    decrypted_folder = "decrypted\\folder\\name\\here"
+    decrypted_file_with_extension = "decrypted_file_name.extension"
+    engine = Engine((138, 61, 72, 41, 9), "There is a bird, but can`t find her, so improvise.")
 
-    # To decrypt a file use:
-    # decrypt_file(engine, f"{file_path}\\{file_name}", f"{target_folder}\\{target_file}")
-    # target_file need not to exist, file_path, file_name, target_folder must exist.
-    # To decrypt a folder use:
-    # decrypt_folder(engine, f"{folder_path}", f"{target_folder}")
+    # To Encrypt a string use:
+    engine.reset()
+    engine.encrypt("Put your message here")
+    
+    # To Decrypt a string use:
+    # engine.reset()
+    # engine.decrypt("Put your message here")
 
+    # To Encrypt .txt File, use:
+    # encrypt_file(engine, f"{source_folder}\\{source_file_name_with_extension}", f"{target_folder}\\{target_file_name_with_extension}")
 
+    # To Encrypt Folder, use:
+    # decrypt_folder(engine, source_folder, f"{target_folder}\\Encrypted")    # create a new directory to save Encrypted.
+
+    # To Decrypt File to a .txt file, use:
+    # decrypt_file(engine, f"{source_folder}\\{source_file_name_with_extension}", f"{target_folder}\\{target_file_name_with_extension}")
+
+    # To Encrypt Folder, use:
+    # decrypt_folder(engine, source_folder, f"{target_folder}\\Decrypted")    # create a new directory to save Decrypted.
+
+    # To check if the file is properly encrypted or not, use:
+    # check_file(engine, f"{source_folder}\\{source_file_name_with_extension}", f"{decrypted_folder}\\{decrypted_file_with_extension}")
+
+    # To check if the folder is properly encrypted or not, decrypt the folder and then use:
+    # check_folder(engine, source_folder, decrypted_folder)
