@@ -213,7 +213,7 @@ if __name__ == '__main__':
     engine = Engine((138, 61, 72, 41, 9), "There is a bird, but can`t find her, so improvise.")
 
     # To Encrypt File, use:
-    # encrypt_file(engine, f"{source_folder}\\{source_file_name_with_extension}", f"{target_folder}\\{target_file_name_with_extension}")
+    encrypt_file(engine, f"{source_folder}\\{source_file_name_with_extension}", f"{target_folder}\\{target_file_name_with_extension}")
 
     # To Encrypt Folder, use:
     # decrypt_folder(engine, source_folder, f"{target_folder}\\Encrypted")    # create a new directory to save Encrypted.
