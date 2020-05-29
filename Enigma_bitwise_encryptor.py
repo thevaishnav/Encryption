@@ -210,7 +210,7 @@ if __name__ == '__main__':
     target_file_name_with_extension = "target_file_name"  # no need of extension, this file may or may not exist.
     decrypted_folder = "decrypted\\folder\\name\\here"
     decrypted_file_with_extension = "decrypted_file_name.extension"
-    engine = Engine((138, 61, 72, 41, 9), "There is a bird, but can`t find her, so improvise.")
+    engine = Engine((19, 45, 75), "This is a test123456789")
 
     # To Encrypt File, use:
     encrypt_file(engine, f"{source_folder}\\{source_file_name_with_extension}", f"{target_folder}\\{target_file_name_with_extension}")
